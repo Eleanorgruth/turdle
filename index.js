@@ -19,16 +19,17 @@ var stats = document.querySelector('#stats-section');
 var gameOverBox = document.querySelector('#game-over-section');
 var gameOverGuessCount = document.querySelector('#game-over-guesses-count');
 var gameOverGuessGrammar = document.querySelector('#game-over-guesses-plural');
+var gamesPlayedTotal = document.querySelector('#stats-total-games')
 
 // Event Listeners
-window.addEventListener('load', setGame);
+window.addEventListener('load', fetchData);
 
 for (var i = 0; i < inputs.length; i++) {
-  inputs[i].addEventListener('keyup', function() { moveToNextInput(event) });
+  inputs[i].addEventListener('keyup', function () { moveToNextInput(event) });
 }
 
 for (var i = 0; i < keyLetters.length; i++) {
-  keyLetters[i].addEventListener('click', function() { clickLetter(event) });
+  keyLetters[i].addEventListener('click', function () { clickLetter(event) });
 }
 
 guessButton.addEventListener('click', submitGuess);
@@ -39,21 +40,33 @@ viewGameButton.addEventListener('click', viewGame);
 
 viewStatsButton.addEventListener('click', viewStats);
 
+let apiWords
+
+//Apicalls
+function fetchData() {
+  fetch("http://localhost:3001/api/v1/words")
+    .then(response => response.json())
+    .then(data => {
+      apiWords = data
+      setGame(apiWords)
+    })
+    .catch (error => console.log(error))
+}
 // Functions
-function setGame() {
+function setGame(words) {
   currentRow = 1;
-  winningWord = getRandomWord();
+  winningWord = getRandomWord(words);
   updateInputPermissions();
 }
 
-function getRandomWord() {
-  var randomIndex = Math.floor(Math.random() * 2500);
-  return words[randomIndex];
+function getRandomWord(wordss) {
+  var randomIndex = Math.floor(Math.random() * wordss.length);
+  return wordss[randomIndex];
 }
 
 function updateInputPermissions() {
-  for(var i = 0; i < inputs.length; i++) {
-    if(!inputs[i].id.includes(`-${currentRow}-`)) {
+  for (var i = 0; i < inputs.length; i++) {
+    if (!inputs[i].id.includes(`-${currentRow}-`)) {
       inputs[i].disabled = true;
     } else {
       inputs[i].disabled = false;
@@ -65,10 +78,11 @@ function updateInputPermissions() {
 
 function moveToNextInput(e) {
   var key = e.keyCode || e.charCode;
-
-  if( key !== 8 && key !== 46 ) {
+  if (key !== 8 && key !== 46) {
     var indexOfNext = parseInt(e.target.id.split('-')[2]) + 1;
     inputs[indexOfNext].focus();
+  // } else {
+  //   console.log("THIS WORKS")
   }
 }
 
@@ -77,7 +91,7 @@ function clickLetter(e) {
   var activeIndex = null;
 
   for (var i = 0; i < inputs.length; i++) {
-    if(inputs[i].id.includes(`-${currentRow}-`) && !inputs[i].value && !activeInput) {
+    if (inputs[i].id.includes(`-${currentRow}-`) && !inputs[i].value && !activeInput) {
       activeInput = inputs[i];
       activeIndex = i;
     }
@@ -87,13 +101,19 @@ function clickLetter(e) {
   inputs[activeIndex + 1].focus();
 }
 
-function submitGuess() {
+//ren when you click the guess button
+function submitGuess(event) {
   if (checkIsWord()) {
     errorMessage.innerText = '';
     compareGuess();
     if (checkForWin()) {
       setTimeout(declareWinner, 1000);
-    } else {
+    } else if (!checkForWin() && currentRow === 6) {
+      console.log("LOSER")
+      recordGameStatsLOSER()
+      startNewGame()
+    }
+     else {
       changeRow();
     }
   } else {
@@ -104,13 +124,13 @@ function submitGuess() {
 function checkIsWord() {
   guess = '';
 
-  for(var i = 0; i < inputs.length; i++) {
-    if(inputs[i].id.includes(`-${currentRow}-`)) {
+  for (var i = 0; i < inputs.length; i++) {
+    if (inputs[i].id.includes(`-${currentRow}-`)) {
       guess += inputs[i].value;
     }
   }
 
-  return words.includes(guess);
+  return apiWords.includes(guess);
 }
 
 function compareGuess() {
@@ -136,7 +156,7 @@ function updateBoxColor(letterLocation, className) {
   var row = [];
 
   for (var i = 0; i < inputs.length; i++) {
-    if(inputs[i].id.includes(`-${currentRow}-`)) {
+    if (inputs[i].id.includes(`-${currentRow}-`)) {
       row.push(inputs[i]);
     }
   }
@@ -162,6 +182,7 @@ function checkForWin() {
 
 function changeRow() {
   currentRow++;
+  console.log("CURRENT ROW", currentRow)
   updateInputPermissions();
 }
 
@@ -176,6 +197,11 @@ function recordGameStats() {
   gamesPlayed.push({ solved: true, guesses: currentRow });
 }
 
+function recordGameStatsLOSER() {
+  console.log("TEST LOSER")
+  gamesPlayed.push({ solved: false, guesses: currentRow });
+}
+
 function changeGameOverText() {
   gameOverGuessCount.innerText = currentRow;
   if (currentRow < 2) {
@@ -188,7 +214,7 @@ function changeGameOverText() {
 function startNewGame() {
   clearGameBoard();
   clearKey();
-  setGame();
+  setGame(apiWords);
   viewGame();
   inputs[0].focus();
 }
@@ -206,6 +232,9 @@ function clearKey() {
   }
 }
 
+function viewTotalGames() {
+  gamesPlayedTotal.innerText = `${gamesPlayed.length}`
+}
 // Change Page View Functions
 
 function viewRules() {
@@ -237,6 +266,7 @@ function viewStats() {
   viewGameButton.classList.remove('active');
   viewRulesButton.classList.remove('active');
   viewStatsButton.classList.add('active');
+  viewTotalGames()
 }
 
 function viewGameOverMessage() {
